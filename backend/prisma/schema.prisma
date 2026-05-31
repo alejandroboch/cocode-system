@@ -13,52 +13,223 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Rol {
-  id          Int       @id @default(autoincrement())
-  nombre      String    @unique
-  descripcion String?
-
-  usuarios    Usuario[]
-}
-
-model Usuario {
-  id        Int      @id @default(autoincrement())
-  nombre    String
-  usuario   String   @unique
-  password  String
-
-  activo    Boolean  @default(true)
-
-  rolId     Int
-  rol       Rol      @relation(fields: [rolId], references: [id])
-
-  createdAt DateTime @default(now())
-}
-
-model Sector {
-  id      Int     @id @default(autoincrement())
-  nombre  String  @unique
-
-  casas   Casa[]
-}
-
-model Casa {
-  id                Int         @id @default(autoincrement())
-
-  direccion         String
-  nombreResponsable String
-
-  estado            EstadoCasa  @default(ACTIVA)
-
-  sectorId          Int?
-  sector            Sector?     @relation(fields: [sectorId], references: [id])
-
-  createdAt         DateTime    @default(now())
-}
-
 enum EstadoCasa {
   ACTIVA
   VACIA
   ABANDONADA
   ALQUILADA
+}
+
+enum EstadoDeuda {
+  PENDIENTE
+  PAGADA
+}
+
+enum EstadoRecibo {
+  ACTIVO
+  ANULADO
+}
+
+model Rol {
+  id          Int     @id @default(autoincrement())
+  nombre      String  @unique
+  descripcion String?
+
+  usuarios Usuario[]
+}
+
+model Usuario {
+  id Int @id @default(autoincrement())
+
+  nombre   String
+  usuario  String @unique
+  password String
+
+  activo Boolean @default(true)
+
+  rolId Int
+  rol   Rol @relation(fields: [rolId], references: [id])
+
+  pagos Pago[]
+
+  bitacoras Bitacora[]
+
+  createdAt DateTime @default(now())
+}
+
+model Bitacora {
+  id Int @id @default(autoincrement())
+
+  usuarioId Int
+
+  modulo String
+  accion String
+
+  descripcion String
+
+  fecha DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([fecha])
+}
+
+model Sector {
+  id Int @id @default(autoincrement())
+
+  nombre String @unique
+
+  casas Casa[]
+}
+
+model Casa {
+  id Int @id @default(autoincrement())
+
+  codigoCasa Int @unique
+
+  direccion String
+
+  propietarioActual String?
+
+  observaciones String?
+
+  estado EstadoCasa @default(ACTIVA)
+
+  sectorId Int?
+  sector   Sector? @relation(fields: [sectorId], references: [id])
+
+  deudas Deuda[]
+
+  tarifasEspeciales TarifaEspecial[]
+
+  cortesAgua CorteAgua[]
+
+  createdAt DateTime @default(now())
+
+  @@index([codigoCasa])
+}
+
+model Servicio {
+  id Int @id @default(autoincrement())
+
+  nombre String @unique
+
+  deudas Deuda[]
+
+  tarifasEspeciales TarifaEspecial[]
+
+  correlativo CorrelativoRecibo?
+}
+
+model CorrelativoRecibo {
+  id Int @id @default(autoincrement())
+
+  servicioId Int @unique
+
+  prefijo String
+
+  ultimoNumero Int @default(0)
+
+  servicio Servicio @relation(fields: [servicioId], references: [id])
+}
+
+model TarifaEspecial {
+  id Int @id @default(autoincrement())
+
+  casaId Int
+
+  servicioId Int
+
+  monto Decimal @db.Decimal(10, 2)
+
+  activo Boolean @default(true)
+
+  casa Casa @relation(fields: [casaId], references: [id])
+
+  servicio Servicio @relation(fields: [servicioId], references: [id])
+
+  @@unique([casaId, servicioId])
+}
+
+model Deuda {
+  id Int @id @default(autoincrement())
+
+  casaId Int
+
+  servicioId Int
+
+  anio Int
+
+  mes Int
+
+  monto Decimal @db.Decimal(10, 2)
+
+  mora Decimal @default(0) @db.Decimal(10, 2)
+
+  estado EstadoDeuda @default(PENDIENTE)
+
+  casa Casa @relation(fields: [casaId], references: [id])
+
+  servicio Servicio @relation(fields: [servicioId], references: [id])
+
+  pago Pago?
+
+  createdAt DateTime @default(now())
+
+  @@unique([casaId, servicioId, anio, mes])
+  @@index([anio, mes])
+}
+
+model Pago {
+  id Int @id @default(autoincrement())
+
+  deudaId Int @unique
+
+  usuarioId Int
+
+  fechaPago DateTime @default(now())
+
+  montoPagado Decimal @db.Decimal(10, 2)
+
+  deuda Deuda @relation(fields: [deudaId], references: [id])
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  recibo Recibo?
+
+  @@index([fechaPago])
+}
+
+model Recibo {
+  id Int @id @default(autoincrement())
+
+  pagoId Int @unique
+
+  numeroRecibo String @unique
+
+  estado EstadoRecibo @default(ACTIVO)
+
+  motivoAnulacion String?
+
+  fechaAnulacion DateTime?
+
+  pago Pago @relation(fields: [pagoId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model CorteAgua {
+  id Int @id @default(autoincrement())
+
+  casaId Int
+
+  fechaCorte DateTime
+
+  fechaReconexion DateTime?
+
+  observaciones String?
+
+  activo Boolean @default(true)
+
+  casa Casa @relation(fields: [casaId], references: [id])
 }
