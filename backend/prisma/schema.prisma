@@ -1,13 +1,64 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Rol {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique
+  descripcion String?
+
+  usuarios    Usuario[]
+}
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  usuario   String   @unique
+  password  String
+
+  activo    Boolean  @default(true)
+
+  rolId     Int
+  rol       Rol      @relation(fields: [rolId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Sector {
+  id      Int     @id @default(autoincrement())
+  nombre  String  @unique
+
+  casas   Casa[]
+}
+
+model Casa {
+  id                Int         @id @default(autoincrement())
+
+  direccion         String
+  nombreResponsable String
+
+  estado            EstadoCasa  @default(ACTIVA)
+
+  sectorId          Int?
+  sector            Sector?     @relation(fields: [sectorId], references: [id])
+
+  createdAt         DateTime    @default(now())
+}
+
+enum EstadoCasa {
+  ACTIVA
+  VACIA
+  ABANDONADA
+  ALQUILADA
 }
