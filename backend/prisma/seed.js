@@ -25,18 +25,20 @@ async function main() {
 
   // Servicios
   const agua = await prisma.servicio.upsert({
-    where: { nombre: "Agua" },
+    where: { nombre: "AGUA" },
     update: {},
     create: {
-      nombre: "Agua"
+      nombre: "AGUA",
+      montoBase: 100
     }
   });
 
   const seguridad = await prisma.servicio.upsert({
-    where: { nombre: "Seguridad y Mantenimiento" },
+    where: { nombre: "SEGURIDAD Y MANTENIMIENTO" },
     update: {},
     create: {
-      nombre: "Seguridad y Mantenimiento"
+      nombre: "SEGURIDAD Y MANTENIMIENTO",
+      montoBase: 100
     }
   });
 

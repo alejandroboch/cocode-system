@@ -21,6 +21,14 @@ app.use("/api/usuarios", require("./src/routes/usuarioRoutes"));
 
 app.use("/api/casas", require("./src/routes/casaRoutes.js"));
 
+// para servicios
+
+app.use("/api/servicios", require("./src/routes/servicioRoutes.js"));
+
+// para tarifas especiales
+
+app.use("/api/tarifas-especiales", require("./src/routes/tarifaEspecialRoutes.js"));
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
