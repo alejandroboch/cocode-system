@@ -93,6 +93,8 @@ model Casa {
 
   observaciones String?
 
+  activo Boolean @default(true)
+
   estado EstadoCasa @default(ACTIVA)
 
   sectorId Int?
