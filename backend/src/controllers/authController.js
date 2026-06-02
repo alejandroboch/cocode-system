@@ -34,6 +34,15 @@ const login = async (req, res) => {
       });
     }
 
+    await prisma.usuario.update({
+        where: {
+          id: user.id
+        },
+        data: {
+          ultimoLogin: new Date()
+        }
+    });
+
     const token = jwt.sign(
       {
         id: user.id,

@@ -47,6 +47,8 @@ model Usuario {
 
   activo Boolean @default(true)
 
+  ultimoLogin DateTime?
+
   rolId Int
   rol   Rol @relation(fields: [rolId], references: [id])
 
@@ -106,6 +108,8 @@ model Casa {
 
   cortesAgua CorteAgua[]
 
+  SaldoFavor SaldoFavor[]
+
   createdAt DateTime @default(now())
 
   @@index([codigoCasa])
@@ -119,6 +123,8 @@ model Servicio {
   deudas Deuda[]
 
   tarifasEspeciales TarifaEspecial[]
+
+  saldosFavor SaldoFavor[]
 
   correlativo CorrelativoRecibo?
 }
@@ -234,4 +240,36 @@ model CorteAgua {
   activo Boolean @default(true)
 
   casa Casa @relation(fields: [casaId], references: [id])
+}
+
+model Configuracion {
+  id Int @id @default(autoincrement())
+
+  tarifaAgua Decimal @db.Decimal(10, 2)
+
+  tarifaSeguridad Decimal @db.Decimal(10, 2)
+
+  moraDefecto Decimal @db.Decimal(10, 2)
+
+  updatedAt DateTime @updatedAt
+}
+
+model SaldoFavor {
+  id Int @id @default(autoincrement())
+
+  casaId Int
+
+  servicioId Int
+
+  monto Decimal @db.Decimal(10, 2)
+
+  observacion String?
+
+  createdAt DateTime @default(now())
+
+  casa Casa @relation(fields: [casaId], references: [id])
+
+  servicio Servicio @relation(fields: [servicioId], references: [id])
+
+  @@index([casaId])
 }

@@ -13,6 +13,14 @@ app.use("/api/auth", require("./src/routes/authRoutes"));
 
 app.use("/api/test", require("./src/routes/testRoutes"));
 
+app.use("/api/admin", require("./src/routes/adminRoutes"));
+
+app.use("/api/usuarios", require("./src/routes/usuarioRoutes"));
+
+// para casas
+
+app.use("/api/casas", require("./src/routes/casaRoutes.js"));
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
