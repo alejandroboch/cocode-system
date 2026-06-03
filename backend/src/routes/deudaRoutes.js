@@ -6,30 +6,30 @@ const verifyToken = require("../middlewares/authMiddleware");
 const authorize = require("../middlewares/roleMiddleware");
 
 const {
-  crearTarifaEspecial,
-  listarTarifasEspeciales,
-  desactivarTarifaEspecial
-} = require("../controllers/tarifaEspecialController");
+  generarDeudas,
+  obtenerDeudasCasa,
+  obtenerSiguienteDeuda
+} = require("../controllers/deudaController");
 
 router.post(
-  "/",
+  "/generar",
   verifyToken,
-  authorize("ADMINISTRADOR"),
-  crearTarifaEspecial
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  generarDeudas
 );
 
 router.get(
-    "/",
+    "/casa/:casaId",
     verifyToken,
     authorize("ADMINISTRADOR", "SECRETARIA"),
-    listarTarifasEspeciales
+    obtenerDeudasCasa
   );
 
-  router.put(
-    "/:id/desactivar",
+  router.get(
+    "/siguiente/:casaId/:servicioId",
     verifyToken,
-    authorize("ADMINISTRADOR"),
-    desactivarTarifaEspecial
+    authorize("ADMINISTRADOR", "SECRETARIA"),
+    obtenerSiguienteDeuda
   );
 
 module.exports = router;

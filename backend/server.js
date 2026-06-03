@@ -29,6 +29,14 @@ app.use("/api/servicios", require("./src/routes/servicioRoutes.js"));
 
 app.use("/api/tarifas-especiales", require("./src/routes/tarifaEspecialRoutes.js"));
 
+// para deudas
+
+app.use("/api/deudas", require("./src/routes/deudaRoutes.js"));
+
+// para pagos
+
+app.use("/api/pagos", require("./src/routes/pagoRoutes.js"));
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

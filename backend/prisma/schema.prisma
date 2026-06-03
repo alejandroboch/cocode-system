@@ -199,7 +199,11 @@ model Pago {
 
   fechaPago DateTime @default(now())
 
-  montoPagado Decimal @db.Decimal(10, 2)
+  montoPagado Decimal @db.Decimal(10,2)
+
+  montoDeuda Decimal @db.Decimal(10,2)
+
+  saldoAplicado Decimal @default(0) @db.Decimal(10,2)
 
   deuda Deuda @relation(fields: [deudaId], references: [id])
 
@@ -263,7 +267,7 @@ model SaldoFavor {
 
   servicioId Int
 
-  monto Decimal @db.Decimal(10, 2)
+  monto Decimal @default(0) @db.Decimal(10, 2)
 
   observacion String?
 
@@ -273,5 +277,5 @@ model SaldoFavor {
 
   servicio Servicio @relation(fields: [servicioId], references: [id])
 
-  @@index([casaId])
+  @@unique([casaId, servicioId], name: "casaId_servicioId")
 }
