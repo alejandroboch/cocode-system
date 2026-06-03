@@ -81,7 +81,8 @@ const registrarPago = async (req, res) => {
           usuarioId,
           montoPagado: Number(montoRecibido),
           montoDeuda: totalDeuda,
-          saldoAplicado
+          saldoAplicado,
+          saldoGenerado: nuevoSaldo
         }
       });
 

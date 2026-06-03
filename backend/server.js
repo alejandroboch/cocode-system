@@ -37,6 +37,14 @@ app.use("/api/deudas", require("./src/routes/deudaRoutes.js"));
 
 app.use("/api/pagos", require("./src/routes/pagoRoutes.js"));
 
+// para recibos
+
+app.use("/api/recibos", require("./src/routes/reciboRoutes.js"));
+
+// para reportes
+
+app.use("/api/reportes", require("./src/routes/reporteRoutes.js"));
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

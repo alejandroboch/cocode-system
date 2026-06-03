@@ -205,6 +205,8 @@ model Pago {
 
   saldoAplicado Decimal @default(0) @db.Decimal(10,2)
 
+  saldoGenerado Decimal @default(0) @db.Decimal(10,2)
+
   deuda Deuda @relation(fields: [deudaId], references: [id])
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
