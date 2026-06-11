@@ -45,7 +45,25 @@ app.use("/api/recibos", require("./src/routes/reciboRoutes.js"));
 
 app.use("/api/reportes", require("./src/routes/reporteRoutes.js"));
 
+//para configuracion
+
+app.use("/api/configuracion", require("./src/routes/configuracionRoutes.js"));
+
+// para bitacora
+
+app.use("/api/bitacora", require("./src/routes/bitacoraRoutes.js"));
+
+//para impotaciones
+
+app.use("/api/importacion", require("./src/routes/importacionRoutes.js"));
+
 const PORT = process.env.PORT || 3000;
+
+if (!process.env.SMTP_HOST || !process.env.SMTP_PASS) {
+  console.warn(
+    "[EMAIL] SMTP incompleto: configure SMTP_HOST y SMTP_PASS en .env para enviar correos reales."
+  );
+}
 
 app.listen(PORT, () => {
   console.log(`Servidor ejecutándose en puerto ${PORT}`);

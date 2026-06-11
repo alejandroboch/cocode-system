@@ -1,14 +1,53 @@
 const prisma = require("../config/prisma");
 const bcrypt = require("bcryptjs");
+const { registrarBitacora } = require("../utils/bitacoraUtils");
+const {
+  normalizarEmail,
+  esEmailValido
+} = require("../utils/passwordResetUtils");
+
+const camposUsuario = {
+  id: true,
+  nombre: true,
+  usuario: true,
+  email: true,
+  activo: true,
+  ultimoLogin: true,
+  createdAt: true,
+  rolId: true,
+  rol: true
+};
+
+const listarRoles = async (req, res) => {
+
+  try {
+
+    const roles = await prisma.rol.findMany({
+      orderBy: {
+        nombre: "asc"
+      }
+    });
+
+    return res.json(roles);
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      mensaje: "Error al listar roles"
+    });
+
+  }
+
+};
 
 const listarUsuarios = async (req, res) => {
 
   try {
 
     const usuarios = await prisma.usuario.findMany({
-      include: {
-        rol: true
-      },
+      select: camposUsuario,
       orderBy: {
         nombre: "asc"
       }
@@ -35,9 +74,18 @@ const crearUsuario = async (req, res) => {
     const {
       nombre,
       usuario,
+      email,
       password,
       rolId
     } = req.body;
+
+    const emailNorm = normalizarEmail(email);
+
+    if (!esEmailValido(emailNorm)) {
+      return res.status(400).json({
+        mensaje: "Indique un correo electrónico válido"
+      });
+    }
 
     const existe = await prisma.usuario.findUnique({
       where: {
@@ -53,24 +101,43 @@ const crearUsuario = async (req, res) => {
 
     }
 
+    const emailExiste = await prisma.usuario.findUnique({
+      where: {
+        email: emailNorm
+      }
+    });
+
+    if (emailExiste) {
+      return res.status(400).json({
+        mensaje: "El correo electrónico ya está registrado"
+      });
+    }
+
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({
+        mensaje: "La contraseña debe tener al menos 6 caracteres"
+      });
+    }
+
     const hash = await bcrypt.hash(password, 10);
 
     const nuevoUsuario = await prisma.usuario.create({
         data: {
           nombre,
           usuario,
+          email: emailNorm,
           password: hash,
           rolId
         },
-        select: {
-          id: true,
-          nombre: true,
-          usuario: true,
-          activo: true,
-          rolId: true,
-          createdAt: true
-        }
+        select: camposUsuario
       });
+
+    await registrarBitacora(prisma, {
+      usuarioId: req.user.id,
+      modulo: "USUARIOS",
+      accion: "CREAR",
+      descripcion: `Usuario creado: ${nuevoUsuario.usuario} (${nuevoUsuario.nombre})`
+    });
 
     return res.status(201).json(nuevoUsuario);
 
@@ -96,15 +163,7 @@ const obtenerUsuario = async (req, res) => {
         where: {
           id: Number(id)
         },
-        select: {
-          id: true,
-          nombre: true,
-          usuario: true,
-          activo: true,
-          ultimoLogin: true,
-          createdAt: true,
-          rol: true
-        }
+        select: camposUsuario
       });
   
       if (!usuario) {
@@ -136,8 +195,8 @@ const obtenerUsuario = async (req, res) => {
       const {
         nombre,
         usuario,
-        rolId,
-        password
+        email,
+        rolId
       } = req.body;
   
       const usuarioExistente = await prisma.usuario.findUnique({
@@ -151,29 +210,50 @@ const obtenerUsuario = async (req, res) => {
           mensaje: "Usuario no encontrado"
         });
       }
+
+      const emailNorm = normalizarEmail(email);
+
+      if (!esEmailValido(emailNorm)) {
+        return res.status(400).json({
+          mensaje: "Indique un correo electrónico válido"
+        });
+      }
+
+      const emailDuplicado = await prisma.usuario.findFirst({
+        where: {
+          email: emailNorm,
+          NOT: {
+            id: Number(id)
+          }
+        }
+      });
+
+      if (emailDuplicado) {
+        return res.status(400).json({
+          mensaje: "El correo electrónico ya está registrado"
+        });
+      }
   
       const data = {
         nombre,
         usuario,
+        email: emailNorm,
         rolId
       };
-  
-      if (password && password.trim() !== "") {
-        data.password = await bcrypt.hash(password, 10);
-      }
   
       const usuarioActualizado = await prisma.usuario.update({
         where: {
           id: Number(id)
         },
         data,
-        select: {
-          id: true,
-          nombre: true,
-          usuario: true,
-          activo: true,
-          rolId: true
-        }
+        select: camposUsuario
+      });
+
+      await registrarBitacora(prisma, {
+        usuarioId: req.user.id,
+        modulo: "USUARIOS",
+        accion: "EDITAR",
+        descripcion: `Usuario actualizado: ${usuarioActualizado.usuario}`
       });
   
       return res.json(usuarioActualizado);
@@ -191,6 +271,7 @@ const obtenerUsuario = async (req, res) => {
   };
 
 module.exports = {
+  listarRoles,
   listarUsuarios,
   crearUsuario,
   obtenerUsuario,

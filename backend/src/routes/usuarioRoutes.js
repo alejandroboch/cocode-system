@@ -6,11 +6,19 @@ const verifyToken = require("../middlewares/authMiddleware");
 const authorize = require("../middlewares/roleMiddleware");
 
 const {
+  listarRoles,
   listarUsuarios,
   crearUsuario,
   obtenerUsuario,
   editarUsuario
 } = require("../controllers/usuarioController");
+
+router.get(
+  "/roles",
+  verifyToken,
+  authorize("ADMINISTRADOR"),
+  listarRoles
+);
 
 router.get(
   "/",

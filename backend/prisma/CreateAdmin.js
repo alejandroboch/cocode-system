@@ -15,6 +15,7 @@ async function main() {
     data: {
       nombre: "Administrador",
       usuario: "admin",
+      email: "admin@cocode.local",
       password: passwordHash,
       rolId: rol.id
     }

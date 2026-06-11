@@ -1,4 +1,134 @@
 const prisma = require("../config/prisma");
+const {
+  esServicioSeguridad,
+  formatearPlacasParaRecibo,
+  combinarObservacionesRecibo
+} = require("../lib/reglasCobro");
+
+function codigoItemRecibo(codigoCasa, servicioId) {
+  return `${codigoCasa}${String(servicioId).padStart(3, "0")}`;
+}
+
+function formatearPeriodoRecibo(pagos) {
+  const ordenados = [...pagos].sort(
+    (a, b) =>
+      a.deuda.anio - b.deuda.anio ||
+      a.deuda.mes - b.deuda.mes
+  );
+
+  if (ordenados.length === 0) {
+    return "";
+  }
+
+  if (ordenados.length === 1) {
+    const deuda = ordenados[0].deuda;
+    return `${deuda.mes}/${deuda.anio}`;
+  }
+
+  const primero = ordenados[0].deuda;
+  const ultimo = ordenados[ordenados.length - 1].deuda;
+
+  return `${primero.mes}/${primero.anio} — ${ultimo.mes}/${ultimo.anio} (${ordenados.length} meses)`;
+}
+
+const includeReciboCompleto = {
+  casa: true,
+  servicio: true,
+  usuario: true,
+  pagos: {
+    include: {
+      deuda: true
+    }
+  }
+};
+
+const listarRecibos = async (req, res) => {
+
+  try {
+
+    const { estado, q } = req.query;
+
+    const where = {};
+
+    if (estado && estado !== "todos") {
+      where.estado = estado;
+    }
+
+    const recibos = await prisma.recibo.findMany({
+      where,
+      include: includeReciboCompleto,
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    let resultado = recibos.map((recibo) => {
+
+      const primerPago = recibo.pagos[0];
+
+      return {
+        numeroRecibo: recibo.numeroRecibo,
+        estado: recibo.estado,
+        fechaEmision: recibo.createdAt,
+        fechaAnulacion: recibo.fechaAnulacion,
+        motivoAnulacion: recibo.motivoAnulacion,
+        observaciones: recibo.observaciones,
+
+        codigoCasa: recibo.casa.codigoCasa,
+        manzana: recibo.casa.manzana,
+        lote: recibo.casa.lote,
+        propietario: recibo.casa.propietarioActual,
+        direccion: recibo.casa.direccion,
+
+        servicio: recibo.servicio.nombre,
+        periodo: formatearPeriodoRecibo(recibo.pagos),
+        cantidadPeriodos: recibo.pagos.length,
+        mes: primerPago?.deuda.mes,
+        anio: primerPago?.deuda.anio,
+
+        monto: Number(recibo.montoTotal),
+        efectivoRecibido: Number(recibo.montoPagado),
+
+        usuarioCobro: recibo.usuario.nombre,
+        deudaIds: recibo.pagos.map((pago) => pago.deudaId)
+      };
+
+    });
+
+    if (q && String(q).trim()) {
+
+      const termino = String(q).trim().toLowerCase();
+
+      resultado = resultado.filter((recibo) => {
+        return (
+          recibo.numeroRecibo.toLowerCase().includes(termino) ||
+          String(recibo.codigoCasa).includes(termino) ||
+          (recibo.manzana &&
+            recibo.manzana.toLowerCase().includes(termino)) ||
+          (recibo.lote &&
+            recibo.lote.toLowerCase().includes(termino)) ||
+          (recibo.propietario &&
+            recibo.propietario.toLowerCase().includes(termino)) ||
+          recibo.servicio.toLowerCase().includes(termino) ||
+          recibo.periodo.toLowerCase().includes(termino)
+        );
+      });
+
+    }
+
+    return res.json(resultado);
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      mensaje: "Error al listar recibos"
+    });
+
+  }
+
+};
 
 const obtenerRecibo = async (req, res) => {
 
@@ -10,19 +140,7 @@ const obtenerRecibo = async (req, res) => {
       where: {
         numeroRecibo
       },
-      include: {
-        pago: {
-          include: {
-            usuario: true,
-            deuda: {
-              include: {
-                casa: true,
-                servicio: true
-              }
-            }
-          }
-        }
-      }
+      include: includeReciboCompleto
     });
 
     if (!recibo) {
@@ -31,36 +149,120 @@ const obtenerRecibo = async (req, res) => {
       });
     }
 
-    const deuda = recibo.pago.deuda;
+    const pagosOrdenados = [...recibo.pagos].sort(
+      (a, b) =>
+        a.deuda.anio - b.deuda.anio ||
+        a.deuda.mes - b.deuda.mes
+    );
+
+    let totalMontoBase = 0;
+    let totalMora = 0;
+
+    const lineas = pagosOrdenados.map((pago, index) => {
+      const deuda = pago.deuda;
+      const montoBase = Number(deuda.monto);
+      const mora = Number(deuda.mora);
+      const total = Number(pago.montoDeuda);
+
+      totalMontoBase += montoBase;
+      totalMora += mora;
+
+      return {
+        item: index + 1,
+        codigo: codigoItemRecibo(
+          recibo.casa.codigoCasa,
+          recibo.servicioId
+        ),
+        descripcion: recibo.servicio.nombre,
+        periodo: {
+          mes: deuda.mes,
+          anio: deuda.anio
+        },
+        montoBase,
+        mora,
+        total
+      };
+    });
+
+    const efectivoRecibido = Number(recibo.montoPagado);
+    const totalCancelado = Number(recibo.montoTotal);
+
+    let observaciones = recibo.observaciones;
+
+    if (esServicioSeguridad(recibo.servicio.nombre)) {
+      const placas = await prisma.placaCasa.findMany({
+        where: {
+          casaId: recibo.casaId
+        },
+        orderBy: [
+          { tipo: "asc" },
+          { placa: "asc" }
+        ]
+      });
+
+      observaciones = combinarObservacionesRecibo(
+        recibo.observaciones,
+        formatearPlacasParaRecibo(placas)
+      );
+    }
 
     return res.json({
       numeroRecibo: recibo.numeroRecibo,
       fecha: recibo.createdAt,
 
       estado: recibo.estado,
+      observaciones,
 
       casa: {
-        codigoCasa: deuda.casa.codigoCasa,
-        propietario: deuda.casa.propietarioActual,
-        direccion: deuda.casa.direccion
+        codigoCasa: recibo.casa.codigoCasa,
+        manzana: recibo.casa.manzana,
+        lote: recibo.casa.lote,
+        propietario: recibo.casa.propietarioActual,
+        direccion: recibo.casa.direccion
       },
 
-      servicio: deuda.servicio.nombre,
+      servicio: recibo.servicio.nombre,
 
-      periodo: {
-        mes: deuda.mes,
-        anio: deuda.anio
-      },
+      item: lineas.length === 1
+        ? {
+            codigo: lineas[0].codigo,
+            descripcion: lineas[0].descripcion
+          }
+        : {
+            codigo: codigoItemRecibo(
+              recibo.casa.codigoCasa,
+              recibo.servicioId
+            ),
+            descripcion: recibo.servicio.nombre
+          },
+
+      periodo: lineas.length === 1
+        ? lineas[0].periodo
+        : {
+            mes: lineas[0].periodo.mes,
+            anio: lineas[0].periodo.anio,
+            mesHasta: lineas[lineas.length - 1].periodo.mes,
+            anioHasta: lineas[lineas.length - 1].periodo.anio,
+            cantidad: lineas.length
+          },
+
+      lineas,
 
       detallePago: {
-        montoDeuda: Number(deuda.monto),
-        mora: Number(deuda.mora),
-        saldoAplicado: Number(recibo.pago.saldoAplicado),
-        efectivoRecibido: Number(recibo.pago.montoPagado),
-        totalCancelado: Number(recibo.pago.montoDeuda)
+        montoDeuda: totalMontoBase,
+        mora: totalMora,
+        totalDeuda: totalCancelado,
+        efectivoRecibido,
+        totalCancelado,
+        cambio: Math.max(0, efectivoRecibido - totalCancelado)
       },
 
-      usuario: recibo.pago.usuario.nombre
+      cobrador: {
+        id: recibo.usuario.id,
+        nombre: recibo.usuario.nombre
+      },
+
+      usuario: recibo.usuario.nombre
     });
 
   } catch (error) {
@@ -83,26 +285,11 @@ const obtenerRecibosPorCasa = async (req, res) => {
   
       const recibos = await prisma.recibo.findMany({
         where: {
-          pago: {
-            deuda: {
-              casa: {
-                codigoCasa: Number(codigoCasa)
-              }
-            }
+          casa: {
+            codigoCasa: Number(codigoCasa)
           }
         },
-        include: {
-          pago: {
-            include: {
-              deuda: {
-                include: {
-                  servicio: true,
-                  casa: true
-                }
-              }
-            }
-          }
-        },
+        include: includeReciboCompleto,
         orderBy: {
           createdAt: "desc"
         }
@@ -111,22 +298,12 @@ const obtenerRecibosPorCasa = async (req, res) => {
       return res.json(
         recibos.map((recibo) => ({
           numeroRecibo: recibo.numeroRecibo,
-  
           estado: recibo.estado,
-  
           fecha: recibo.createdAt,
-  
-          servicio:
-            recibo.pago.deuda.servicio.nombre,
-  
-          mes:
-            recibo.pago.deuda.mes,
-  
-          anio:
-            recibo.pago.deuda.anio,
-  
-          total:
-            Number(recibo.pago.montoDeuda)
+          servicio: recibo.servicio.nombre,
+          periodo: formatearPeriodoRecibo(recibo.pagos),
+          cantidadPeriodos: recibo.pagos.length,
+          total: Number(recibo.montoTotal)
         }))
       );
   
@@ -164,7 +341,7 @@ const obtenerRecibosPorCasa = async (req, res) => {
             numeroRecibo
           },
           include: {
-            pago: {
+            pagos: {
               include: {
                 deuda: true
               }
@@ -180,8 +357,6 @@ const obtenerRecibosPorCasa = async (req, res) => {
           throw new Error("El recibo ya está anulado");
         }
   
-        const deuda = recibo.pago.deuda;
-  
         await tx.recibo.update({
           where: {
             id: recibo.id
@@ -192,88 +367,25 @@ const obtenerRecibosPorCasa = async (req, res) => {
             fechaAnulacion: new Date()
           }
         });
-  
-        await tx.deuda.update({
-          where: {
-            id: deuda.id
-          },
-          data: {
-            estado: "PENDIENTE"
-          }
-        });
-  
-        const saldoActual = await tx.saldoFavor.findUnique({
-          where: {
-            casaId_servicioId: {
-              casaId: deuda.casaId,
-              servicioId: deuda.servicioId
+
+        for (const pago of recibo.pagos) {
+          await tx.deuda.update({
+            where: {
+              id: pago.deudaId
+            },
+            data: {
+              estado: "PENDIENTE"
             }
-          }
-        });
-  
-        const saldoActualMonto =
-          saldoActual
-            ? Number(saldoActual.monto)
-            : 0;
-  
-        const saldoRestaurado =
-          saldoActualMonto
-          - Number(recibo.pago.saldoGenerado)
-          + Number(recibo.pago.saldoAplicado);
-  
-        if (saldoRestaurado > 0) {
-  
-          if (saldoActual) {
-  
-            await tx.saldoFavor.update({
-              where: {
-                casaId_servicioId: {
-                  casaId: deuda.casaId,
-                  servicioId: deuda.servicioId
-                }
-              },
-              data: {
-                monto: saldoRestaurado
-              }
-            });
-  
-          } else {
-  
-            await tx.saldoFavor.create({
-              data: {
-                casaId: deuda.casaId,
-                servicioId: deuda.servicioId,
-                monto: saldoRestaurado,
-                observacion: "Restaurado por anulación"
-              }
-            });
-  
-          }
-  
-        } else {
-  
-          if (saldoActual) {
-  
-            await tx.saldoFavor.delete({
-              where: {
-                casaId_servicioId: {
-                  casaId: deuda.casaId,
-                  servicioId: deuda.servicioId
-                }
-              }
-            });
-  
-          }
-  
+          });
         }
-  
+
         await tx.bitacora.create({
           data: {
             usuarioId,
             modulo: "RECIBOS",
             accion: "ANULAR",
             descripcion:
-              `Recibo anulado ${numeroRecibo}`
+              `Recibo anulado ${numeroRecibo} (${recibo.pagos.length} periodo(s))`
           }
         });
   
@@ -296,6 +408,7 @@ const obtenerRecibosPorCasa = async (req, res) => {
   };
 
 module.exports = {
+  listarRecibos,
   obtenerRecibo,
   obtenerRecibosPorCasa,
   anularRecibo

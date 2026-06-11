@@ -9,8 +9,12 @@ const {
   crearCasa,
   listarCasas,
   buscarCasas,
+  buscarPorUbicacion,
+  listarTelefonosCasas,
+  listarPlacasCasas,
   obtenerCasa,
-  editarCasa
+  editarCasa,
+  actualizarContactoCasa
 } = require("../controllers/casaController");
 
 router.post(
@@ -35,6 +39,27 @@ router.get(
 );
 
 router.get(
+  "/ubicacion",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  buscarPorUbicacion
+);
+
+router.get(
+  "/telefonos",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  listarTelefonosCasas
+);
+
+router.get(
+  "/placas",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  listarPlacasCasas
+);
+
+router.get(
   "/:id",
   verifyToken,
   authorize("ADMINISTRADOR", "SECRETARIA"),
@@ -46,6 +71,13 @@ router.put(
   verifyToken,
   authorize("ADMINISTRADOR"),
   editarCasa
+);
+
+router.put(
+  "/:id/contacto",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  actualizarContactoCasa
 );
 
 module.exports = router;

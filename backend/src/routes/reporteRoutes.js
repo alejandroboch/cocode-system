@@ -9,8 +9,9 @@ const {
   estadoCuenta,
   deudasPendientes,
   recaudacionMensual,
-  saldosFavor,
-  pagosPorFecha
+  pagosPorFecha,
+  recibosAnulados,
+  dashboard
 } = require("../controllers/reporteController");
 
 router.get(
@@ -32,15 +33,21 @@ router.get(
   );
 
   router.get(
-    "/saldos-favor",
-    verifyToken,
-    saldosFavor
-  );
-
-  router.get(
     "/pagos",
     verifyToken,
     pagosPorFecha
+  );
+
+  router.get(
+    "/recibos-anulados",
+    verifyToken,
+    recibosAnulados
+  );
+
+  router.get(
+    "/dashboard",
+    verifyToken,
+    dashboard
   );
 
 module.exports = router;

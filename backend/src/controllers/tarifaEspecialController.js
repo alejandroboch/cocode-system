@@ -1,4 +1,5 @@
 const prisma = require("../config/prisma");
+const { registrarBitacora } = require("../utils/bitacoraUtils");
 
 const crearTarifaEspecial = async (req, res) => {
 
@@ -27,8 +28,20 @@ const crearTarifaEspecial = async (req, res) => {
           data: {
             monto,
             activo: true
+          },
+          include: {
+            casa: true,
+            servicio: true
           }
         });
+
+      await registrarBitacora(prisma, {
+        usuarioId: req.user.id,
+        modulo: "TARIFAS",
+        accion: "EDITAR",
+        descripcion:
+          `Tarifa especial actualizada — Casa #${actualizada.casa.codigoCasa}, ${actualizada.servicio.nombre}`
+      });
 
       return res.json(actualizada);
 
@@ -39,7 +52,19 @@ const crearTarifaEspecial = async (req, res) => {
         casaId: Number(casaId),
         servicioId: Number(servicioId),
         monto
+      },
+      include: {
+        casa: true,
+        servicio: true
       }
+    });
+
+    await registrarBitacora(prisma, {
+      usuarioId: req.user.id,
+      modulo: "TARIFAS",
+      accion: "CREAR",
+      descripcion:
+        `Tarifa especial creada — Casa #${tarifa.casa.codigoCasa}, ${tarifa.servicio.nombre}`
     });
 
     return res.status(201).json(tarifa);
@@ -93,6 +118,10 @@ const listarTarifasEspeciales = async (req, res) => {
       const tarifa = await prisma.tarifaEspecial.findUnique({
         where: {
           id: Number(id)
+        },
+        include: {
+          casa: true,
+          servicio: true
         }
       });
   
@@ -111,6 +140,14 @@ const listarTarifasEspeciales = async (req, res) => {
             activo: false
           }
         });
+
+      await registrarBitacora(prisma, {
+        usuarioId: req.user.id,
+        modulo: "TARIFAS",
+        accion: "DESACTIVAR",
+        descripcion:
+          `Tarifa especial desactivada — Casa #${tarifa.casa.codigoCasa}, ${tarifa.servicio.nombre}`
+      });
   
       return res.json(actualizada);
   

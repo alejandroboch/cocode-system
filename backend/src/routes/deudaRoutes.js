@@ -7,8 +7,13 @@ const authorize = require("../middlewares/roleMiddleware");
 
 const {
   generarDeudas,
+  resumenPeriodo,
+  eliminarGeneracionMes,
   obtenerDeudasCasa,
-  obtenerSiguienteDeuda
+  obtenerSiguienteDeuda,
+  crearCobroExtra,
+  listarCobrosExtra,
+  eliminarCobroExtra
 } = require("../controllers/deudaController");
 
 router.post(
@@ -16,6 +21,41 @@ router.post(
   verifyToken,
   authorize("ADMINISTRADOR", "SECRETARIA"),
   generarDeudas
+);
+
+router.get(
+  "/resumen-periodo",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  resumenPeriodo
+);
+
+router.post(
+  "/eliminar-generacion",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  eliminarGeneracionMes
+);
+
+router.post(
+  "/cobro-extra",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  crearCobroExtra
+);
+
+router.get(
+  "/cobros-extra",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  listarCobrosExtra
+);
+
+router.delete(
+  "/cobro-extra/:id",
+  verifyToken,
+  authorize("ADMINISTRADOR", "SECRETARIA"),
+  eliminarCobroExtra
 );
 
 router.get(

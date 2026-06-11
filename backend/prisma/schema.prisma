@@ -20,6 +20,11 @@ enum EstadoCasa {
   ALQUILADA
 }
 
+enum TipoPlaca {
+  AUTO
+  MOTO
+}
+
 enum EstadoDeuda {
   PENDIENTE
   PAGADA
@@ -43,7 +48,11 @@ model Usuario {
 
   nombre   String
   usuario  String @unique
+  email    String @unique
   password String
+
+  resetTokenHash    String?
+  resetTokenExpires DateTime?
 
   activo Boolean @default(true)
 
@@ -53,6 +62,8 @@ model Usuario {
   rol   Rol @relation(fields: [rolId], references: [id])
 
   pagos Pago[]
+
+  recibos Recibo[]
 
   bitacoras Bitacora[]
 
@@ -89,6 +100,10 @@ model Casa {
 
   codigoCasa Int @unique
 
+  manzana String?
+
+  lote String?
+
   direccion String
 
   propietarioActual String?
@@ -108,11 +123,48 @@ model Casa {
 
   cortesAgua CorteAgua[]
 
-  SaldoFavor SaldoFavor[]
+  telefonos TelefonoCasa[]
+
+  placas PlacaCasa[]
+
+  recibos Recibo[]
 
   createdAt DateTime @default(now())
 
+  @@unique([manzana, lote])
   @@index([codigoCasa])
+  @@index([manzana, lote])
+}
+
+model TelefonoCasa {
+  id Int @id @default(autoincrement())
+
+  casaId Int
+
+  numero String
+
+  casa Casa @relation(fields: [casaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([casaId])
+}
+
+model PlacaCasa {
+  id Int @id @default(autoincrement())
+
+  casaId Int
+
+  placa String
+
+  tipo TipoPlaca
+
+  casa Casa @relation(fields: [casaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([casaId])
+  @@index([placa])
 }
 
 model Servicio {
@@ -120,13 +172,13 @@ model Servicio {
 
   nombre String @unique
 
-   montoBase Decimal @default(100) @db.Decimal(10,2)
+  montoBase Decimal @default(100) @db.Decimal(10, 2)
 
   deudas Deuda[]
 
   tarifasEspeciales TarifaEspecial[]
 
-  saldosFavor SaldoFavor[]
+  recibos Recibo[]
 
   correlativo CorrelativoRecibo?
 }
@@ -178,11 +230,15 @@ model Deuda {
 
   estado EstadoDeuda @default(PENDIENTE)
 
+  esExtra Boolean @default(false)
+
+  observaciones String?
+
   casa Casa @relation(fields: [casaId], references: [id])
 
   servicio Servicio @relation(fields: [servicioId], references: [id])
 
-  pago Pago?
+  pago Pago[]
 
   createdAt DateTime @default(now())
 
@@ -193,33 +249,29 @@ model Deuda {
 model Pago {
   id Int @id @default(autoincrement())
 
-  deudaId Int @unique
+  deudaId Int
+
+  reciboId Int
 
   usuarioId Int
 
   fechaPago DateTime @default(now())
 
-  montoPagado Decimal @db.Decimal(10,2)
-
-  montoDeuda Decimal @db.Decimal(10,2)
-
-  saldoAplicado Decimal @default(0) @db.Decimal(10,2)
-
-  saldoGenerado Decimal @default(0) @db.Decimal(10,2)
+  montoDeuda Decimal @db.Decimal(10, 2)
 
   deuda Deuda @relation(fields: [deudaId], references: [id])
 
+  recibo Recibo @relation(fields: [reciboId], references: [id])
+
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
-  recibo Recibo?
-
   @@index([fechaPago])
+  @@index([deudaId])
+  @@index([reciboId])
 }
 
 model Recibo {
   id Int @id @default(autoincrement())
-
-  pagoId Int @unique
 
   numeroRecibo String @unique
 
@@ -227,11 +279,33 @@ model Recibo {
 
   motivoAnulacion String?
 
+  observaciones String?
+
   fechaAnulacion DateTime?
 
-  pago Pago @relation(fields: [pagoId], references: [id])
+  casaId Int
+
+  servicioId Int
+
+  usuarioId Int
+
+  montoTotal Decimal @db.Decimal(10, 2)
+
+  montoPagado Decimal @db.Decimal(10, 2)
+
+  casa Casa @relation(fields: [casaId], references: [id])
+
+  servicio Servicio @relation(fields: [servicioId], references: [id])
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  pagos Pago[]
 
   createdAt DateTime @default(now())
+
+  @@index([casaId])
+  @@index([servicioId])
+  @@index([createdAt])
 }
 
 model CorteAgua {
@@ -260,24 +334,4 @@ model Configuracion {
   moraDefecto Decimal @db.Decimal(10, 2)
 
   updatedAt DateTime @updatedAt
-}
-
-model SaldoFavor {
-  id Int @id @default(autoincrement())
-
-  casaId Int
-
-  servicioId Int
-
-  monto Decimal @default(0) @db.Decimal(10, 2)
-
-  observacion String?
-
-  createdAt DateTime @default(now())
-
-  casa Casa @relation(fields: [casaId], references: [id])
-
-  servicio Servicio @relation(fields: [servicioId], references: [id])
-
-  @@unique([casaId, servicioId], name: "casaId_servicioId")
 }

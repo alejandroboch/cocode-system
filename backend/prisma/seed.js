@@ -42,6 +42,15 @@ async function main() {
     }
   });
 
+  const reconexionAgua = await prisma.servicio.upsert({
+    where: { nombre: "RECONEXION DE AGUA" },
+    update: {},
+    create: {
+      nombre: "RECONEXION DE AGUA",
+      montoBase: 50
+    }
+  });
+
   // Correlativos
   await prisma.correlativoRecibo.upsert({
     where: {
@@ -66,6 +75,30 @@ async function main() {
       ultimoNumero: 0
     }
   });
+
+  await prisma.correlativoRecibo.upsert({
+    where: {
+      servicioId: reconexionAgua.id
+    },
+    update: {},
+    create: {
+      servicioId: reconexionAgua.id,
+      prefijo: "R",
+      ultimoNumero: 0
+    }
+  });
+
+  const configExistente = await prisma.configuracion.findFirst();
+
+  if (!configExistente) {
+    await prisma.configuracion.create({
+      data: {
+        tarifaAgua: 100,
+        tarifaSeguridad: 100,
+        moraDefecto: 25
+      }
+    });
+  }
 
   console.log("Seed ejecutado correctamente");
 }
